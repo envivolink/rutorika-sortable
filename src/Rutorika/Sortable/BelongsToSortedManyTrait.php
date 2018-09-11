@@ -64,10 +64,11 @@ trait BelongsToSortedManyTrait
      * Get the joining table name for a many-to-many relation.
      *
      * @param string $related
+     * @param null $instance
      *
      * @return string
      */
-    abstract public function joiningTable($related);
+    abstract public function joiningTable($related, $instance = NULL);
 
     /**
      * Get the default foreign key name for the model.
