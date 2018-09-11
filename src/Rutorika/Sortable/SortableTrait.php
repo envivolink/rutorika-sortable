@@ -12,6 +12,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
  * @traitUses \Illuminate\Database\Eloquent\Model
  *
  * @property string $sortableGroupField
+ * @property bool $switchBetweenGroups
  *
  * @method null creating($callback)
  * @method QueryBuilder on($connection = null)
@@ -87,9 +88,20 @@ trait SortableTrait
 
         $this->_transaction(function () use ($entity, $action) {
             $sortableField = static::getSortableField();
+            $groupField = static::getSortableGroupField();
 
             $oldPosition = $this->getAttribute($sortableField);
             $newPosition = $entity->getAttribute($sortableField);
+
+            if ($groupField && $this->getCanSwitchBetweenGroups()) {
+                $oldList = $this->getAttribute($groupField);
+                $newList = $entity->getAttribute($groupField);
+                if ($oldList !== $newList) {
+                    $query = static::applySortableGroup(static::on(), $entity);
+                    $oldPosition = $query->max($sortableField) + 1;
+                    $this->setAttribute($groupField, $newList);
+                }
+            }
 
             if ($oldPosition === $newPosition) {
                 return;
@@ -251,6 +263,20 @@ trait SortableTrait
     }
 
     /**
+     * @return bool
+     */
+    public static function getCanSwitchBetweenGroups()
+    {
+        $sortableGroupField = self::getSortableGroupField();
+
+        if ($sortableGroupField == null || is_array($sortableGroupField)) {
+            return false;
+        }
+
+        return isset(static::$switchBetweenGroups) ? static::$switchBetweenGroups : false;
+    }
+
+    /**
      * @return string
      */
     public static function getSortableField()
@@ -268,6 +294,10 @@ trait SortableTrait
      */
     public function checkSortableGroupField($sortableGroupField, $entity)
     {
+        if ($this->getCanSwitchBetweenGroups()) {
+            return;
+        }
+
         if (is_array($sortableGroupField)) {
             foreach ($sortableGroupField as $field) {
                 $this->checkFieldEquals($this, $entity, $field);
